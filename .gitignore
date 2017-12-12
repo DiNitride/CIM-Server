@@ -1,0 +1,4 @@
+.idea
+*.pyc
+CIM/config
+CIM/logs
