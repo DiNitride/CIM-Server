@@ -1,3 +1,5 @@
+# THIS WILL NOT BE FUNCTIONAL 90% OF THE TIME I JUST LAUNCH SHIT FROM HERE LOL
+
 import CIM
 
 serv = CIM.Server()
@@ -6,4 +8,4 @@ serv = CIM.Server()
 
 m = CIM.PacketClasses.Message(3, "grag", "feaf", 1, "aaa")
 
-print(m.getPacketForm())
+print(m.get_packet_form())
