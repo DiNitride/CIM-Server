@@ -60,10 +60,19 @@ class Server:
                     self.broadcast(f"[{time.pretty_time()}] User {addr[0]} has connected.")
                 else:
                     try:
-                        self.logger.info(f"Received new message from {sock.getsockname()[0]}")
+                        # Receive data
+                        self.logger.info(f"Received new message from {sock.getpeername()[0]}")
                         data = sock.recv(self.recv_buffer)
                         msg = data.decode("utf-8", errors='ignore')
-                        self.broadcast(f"[{time.pretty_time()}] [{sock.getsockname()[0]}]: {msg}")
+                        msg = msg.strip()
+
+                        # Pass to message handling
+                        if msg == "":
+                            continue
+
+                        # Return to broadcast
+                        self.broadcast(f"[{time.pretty_time()}] [{sock.getpeername()[0]}]: {msg}")
+
                     except (ConnectionResetError, ConnectionAbortedError):
                         if sock in self.socket_list:
                             self.socket_list.remove(sock)
@@ -82,7 +91,8 @@ class Server:
         """
         Broadcasts a message to all current connections
         """
-        self.logger.info(f"Broadcasted message {msg}")
+        msg = msg.strip()
+        self.logger.info(f"Broadcasted message \"{msg}\"")
         for sock in self.socket_list:
             if sock != self.server_socket:
                 sock.send(f"{msg}\r\n".encode())

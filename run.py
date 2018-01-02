@@ -1,11 +1,13 @@
-# THIS WILL NOT BE FUNCTIONAL 90% OF THE TIME I JUST LAUNCH SHIT FROM HERE LOL
-
 import CIM
 
-serv = CIM.Server()
+db = CIM.utils.db
 
-#serv.start()
+# serv = CIM.Server()
 
-m = CIM.PacketClasses.Message(3, "grag", "feaf", 1, "aaa")
+# serv.start()
 
-print(m.get_packet_form())
+db.new_user("James", "password", 3)
+u = db.get_user("James")
+print(u)
+#db.del_user("James")
+
