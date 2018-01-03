@@ -3,7 +3,7 @@ import select
 import socket
 import threading
 
-from CIM.utils import time
+from .utils import time
 
 
 class Server:

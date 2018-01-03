@@ -1,10 +1,11 @@
 import psycopg2
 import logging
 
-import CIM
+from ..user import User
+from . import tools
 
 # database config
-dbc = CIM.utils.tools.load_config("db.json")
+dbc = tools.load_config("db.json")
 
 conn_str = f"host='{dbc['host']}' " \
            f"dbname='{dbc['db']}' " \
@@ -39,5 +40,8 @@ def del_user(usr: str):
 
 def get_user(usr: str):
     cursor.execute("SELECT * FROM public.users WHERE login=(%s)", (usr,))
-    user = CIM.User(*cursor.fetchone())
-    return user
+    u = cursor.fetchone()
+    if u is not None:
+        user = User(*u)
+        return user
+    return u

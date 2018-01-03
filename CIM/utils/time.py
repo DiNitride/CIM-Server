@@ -1,6 +1,5 @@
 from datetime import datetime
 import dateparser
-
 import logging
 
 logger = logging.getLogger(__name__)

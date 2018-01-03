@@ -1,13 +1,12 @@
+import logging
+
 import CIM
 
-db = CIM.utils.db
+logger = logging.getLogger("CIM")
 
-# serv = CIM.Server()
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)8s [%(name)s] : %(message)s'))
 
-# serv.start()
+logger.addHandler(stream_handler)
 
-db.new_user("James", "password", 3)
-u = db.get_user("James")
-print(u)
-#db.del_user("James")
-
+CIM.utils.db.del_user("Test")
