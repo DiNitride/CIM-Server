@@ -27,6 +27,7 @@ def new_user(usr: str, passwd: str, permlvl: int):
     cursor.execute("INSERT INTO public.users VALUES (%s, %s, %s)", (usr, passwd, permlvl))
     conn.commit()
     logger.info(f"Successfully created new user '{usr}'")
+    return get_user(usr)
 
 
 def del_user(usr: str):
@@ -34,8 +35,10 @@ def del_user(usr: str):
         cursor.execute("DELETE FROM public.users WHERE login=(%s)", (usr,))
         conn.commit()
         logger.info(f"Successfully deleted user '{usr}'")
+        return True
     else:
         logger.error(f"Error deleting user '{usr}': User does not exist")
+        return False
 
 
 def get_user(usr: str):

@@ -7,4 +7,4 @@ class User:
         self.permlvl = permlvl
 
     def __str__(self):
-        return f"User: {self.usr}"
+        return self.usr

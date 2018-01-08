@@ -22,6 +22,7 @@ logger.setLevel(logging.DEBUG)
 
 log_format = logging.Formatter('%(asctime)s - %(levelname)8s [%(name)s] : %(message)s')
 
+
 file_handler = logging.FileHandler(filename=f"{os.getenv('CIM_ROOT')}/logs/{t}", encoding="utf-8", mode="w")
 file_handler.setFormatter(log_format)
 
