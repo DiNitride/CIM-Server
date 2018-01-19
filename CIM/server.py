@@ -87,7 +87,7 @@ class Server:
         self.logger.info("Server socket closed, exiting. . .")
         quit(0)
 
-    def broadcast(self, Packet):
+    def broadcast(self, msg):
         """
         Broadcasts a message to all current connections
         """

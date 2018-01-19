@@ -9,4 +9,4 @@ stream_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)8s [%(n
 
 logger.addHandler(stream_handler)
 
-CIM.utils.db.del_user("Test")
+CIM.Server().start()
