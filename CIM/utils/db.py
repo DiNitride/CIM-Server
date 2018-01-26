@@ -4,7 +4,6 @@ import logging
 from ..user import User
 from . import tools
 
-# database config
 dbc = tools.load_config("db.json")
 
 conn_str = f"host='{dbc['host']}' " \
