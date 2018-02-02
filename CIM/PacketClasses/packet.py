@@ -7,5 +7,3 @@ class BasePacket:
         self.type = type
         self.token = token
         self.payload = payload
-
-    

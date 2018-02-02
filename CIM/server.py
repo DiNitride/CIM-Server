@@ -27,7 +27,7 @@ class Server:
         self.logger.debug("Bound to host and port")
         # Maximum number of client connections is 5
         self.server_socket.listen(5)
-        self.logger.debug("Listening for connections")
+        self.logger.debug("Listening   for connections")
         self.socket_list.append(self.server_socket)
         self.input_thread.start()
         self.main_thread.start()
