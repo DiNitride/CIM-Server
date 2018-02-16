@@ -1,5 +1,7 @@
+from enum import Enum
 import psycopg2
 import logging
+import hashlib
 
 from ..user import User
 from . import tools
@@ -17,12 +19,19 @@ cursor = conn.cursor()
 logger = logging.getLogger(__name__)
 
 
+class Login(Enum):
+    AUTHORISED = True
+    UNAUTHORISED = False
+
+
 def new_user(usr: str, passwd: str, permlvl: int):
     cursor.execute("SELECT * FROM public.users WHERE login=(%s)", (usr,))
     user_list = cursor.fetchall()
     if len(user_list) != 0:
         logger.error(f"Error creating user '{usr}': Already exists in table")
         return
+    passwd = hashlib.sha256(passwd.encode()).hexdigest()
+    print(passwd)
     cursor.execute("INSERT INTO public.users VALUES (%s, %s, %s)", (usr, passwd, permlvl))
     conn.commit()
     logger.info(f"Successfully created new user '{usr}'")
@@ -46,4 +55,14 @@ def get_user(usr: str):
     if u is not None:
         user = User(*u)
         return user
-    return u
+    return None
+
+
+def check_authorise_user(username, password):
+    user = get_user(username)
+    if user is not None:
+        if user.passwd == password:
+            return Login.AUTHORISED
+    return Login.UNAUTHORISED
+
+

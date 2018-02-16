@@ -1,7 +1,7 @@
-from .packet import BasePacket
+from .packet import Packet
 
 
-class Command(BasePacket):
+class Command(Packet):
 
     def __init__(self):
         # Do stuff

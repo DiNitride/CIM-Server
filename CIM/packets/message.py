@@ -1,7 +1,7 @@
-from . import BasePacket
+from . import Packet
 
 
-class Message(BasePacket):
+class Message(Packet):
 
     def __init__(self, type: int, token: str, timestamp, channel: int, message: str):
         super().__init__(type, token, timestamp, None)

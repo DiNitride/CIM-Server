@@ -3,18 +3,24 @@ import select
 import socket
 import threading
 
+from .utils.db import check_authorise_user
+from .packet_factory import PacketFactory
 from .utils import time
+from .connection import Connection, ConnectionStates
+from .packets import Packet, Message
+from .token_generator import generate_session_token
 
 
 class Server:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket_list = []
+        self.server_conn = Connection(socket.socket(socket.AF_INET, socket.SOCK_STREAM), ConnectionStates.SERVER)
+        self.conn_list = []
         self.recv_buffer = 4096
         self.port = 46400
         self.closed = False
+        self.factory = PacketFactory()
         self.input_thread = threading.Thread(group=None, target=self.console_input, name="console")
         self.main_thread = threading.Thread(group=None, target=self.loop, name="loop")
 
@@ -23,12 +29,12 @@ class Server:
         Starts the server
         """
         self.closed = False
-        self.server_socket.bind(("0.0.0.0", self.port))
+        self.server_conn.set_token(generate_session_token())
+        self.server_conn.socket.bind(("0.0.0.0", self.port))
         self.logger.debug("Bound to host and port")
-        # Maximum number of client connections is 5
-        self.server_socket.listen(5)
-        self.logger.debug("Listening   for connections")
-        self.socket_list.append(self.server_socket)
+        self.server_conn.socket.listen(5)
+        self.logger.debug("Listening for connections")
+        self.conn_list.append(self.server_conn)
         self.input_thread.start()
         self.main_thread.start()
 
@@ -49,50 +55,106 @@ class Server:
         self.logger.debug("Starting main loop thread")
         while not self.closed:
 
-            ready_to_read, _, _ = select.select(self.socket_list, [], [], 0)
+            ready_to_read, _, _ = select.select(self.conn_list, [], [], 0)
 
-            for sock in ready_to_read:
+            for conn in ready_to_read:
 
-                if sock == self.server_socket:
-                    in_socket, addr = self.server_socket.accept()
-                    self.socket_list.append(in_socket)
-                    self.logger.info(f"Accepted new connection on address {addr}")
-                    self.broadcast(f"[{time.pretty_time()}] User {addr[0]} has connected.")
-                else:
-                    try:
-                        # Receive data
-                        self.logger.info(f"Received new message from {sock.getpeername()[0]}")
-                        data = sock.recv(self.recv_buffer)
-                        msg = data.decode("utf-8", errors='ignore')
-                        msg = msg.strip()
-
-                        # Pass to message handling
-                        if msg == "":
-                            continue
-
-                        # Return to broadcast
-                        self.broadcast(f"[{time.pretty_time()}] [{sock.getpeername()[0]}]: {msg}")
-
-                    except (ConnectionResetError, ConnectionAbortedError):
-                        if sock in self.socket_list:
-                            self.socket_list.remove(sock)
-                        self.broadcast(f"[{time.pretty_time()}] User {sock.getsockname()[0]} has disconnected.")
+                try:
+                    if conn.state == ConnectionStates.SERVER:
+                        # New connection
+                        self.handshake(conn.accept())
+                    elif conn.state == ConnectionStates.UNAUTHORISED:
+                        self.authorise_connection(self.recieve_data(conn), conn)
+                    elif conn.state == ConnectionStates.AUTHORISED:
+                        self.complete_handshake(self.recieve_data(conn), conn)
+                    elif conn.state == ConnectionStates.CONNECTED:
+                        packet = self.recieve_data(conn)
+                        if packet.packet_type == "100":
+                            self.broadcast(Packet(
+                                packet_type="100",
+                                token=self.server_conn.token,
+                                payload=f"{packet.payload}"
+                            ))
+                except (ConnectionResetError, ConnectionAbortedError):
+                    if conn in self.conn_list:
+                        self.conn_list.remove(conn)
 
         self.logger.info("Closing all connections")
-        for sock in self.socket_list:
-            sock.close()
+        for conn in self.conn_list:
+            conn.socket.close()
         self.logger.info("All connections closed")
 
-        self.server_socket.close()
+        self.server_conn.socket.close()
         self.logger.info("Server socket closed, exiting. . .")
         quit(0)
 
-    def broadcast(self, msg):
+    def disconnect(self, conn):
+        conn.socket.close()
+        if conn in self.conn_list:
+            self.conn_list.remove(conn)
+
+    def get_new_token(self):
+        while True:
+            t = generate_session_token()
+            if self.check_for_token_dup(t):
+                return t
+
+    def check_for_token_dup(self, token):
+        for conn in self.conn_list:
+            if conn.token == token:
+                return False
+        return True
+
+    def get_connection_index(self, conn):
+        for i, c in enumerate(self.conn_list):
+            if c.socket == conn.socket:
+                return i
+
+    def update_connection(self, conn):
+        i = self.get_connection_index(conn)
+        self.conn_list[i] = conn
+
+    def recieve_data(self, conn):
+        return self.factory.process(conn.socket.recv(self.recv_buffer).decode("utf-8", errors='ignore').strip())
+
+    def handshake(self, conn):
+        conn = Connection(conn, ConnectionStates.UNAUTHORISED)
+        self.conn_list.append(conn)
+        resp = Packet(packet_type="001", token=self.server_conn.token, payload="null")
+        self.send(conn, resp)
+
+    def authorise_connection(self, auth, conn):
+        if check_authorise_user(auth["username"], auth["password"]):
+            resp = Packet(
+                packet_type="004",
+                timestamp=time.iso(),
+                token=self.server_conn.token,
+                payload=self.get_new_token()
+            )
+            conn.set_state(ConnectionStates.AUTHORISED)
+            self.update_connection(conn)
+            self.send(conn, resp)
+            self.disconnect(conn)
+        else:
+            resp = Packet(packet_type="003", timestamp=time.iso(), token=self.server_conn.token, payload="null")
+            self.send(conn, resp)
+
+    def complete_handshake(self, packet, conn):
+        if packet.token == conn.token:
+            conn.set_state(ConnectionStates.CONNECTED)
+            self.update_connection(conn)
+            resp = Packet(packet_type="006", token=self.server_conn.token, payload="null")
+            self.send(conn, resp)
+
+    def send(self, destination, packet):
+        destination.socket.send(packet.to_raw())
+
+    def broadcast(self, packet):
         """
         Broadcasts a message to all current connections
         """
-        msg = msg.strip()
-        self.logger.info(f"Broadcasted message \"{msg}\"")
-        for sock in self.socket_list:
-            if sock != self.server_socket:
-                sock.send(f"{msg}\r\n".encode())
+        self.logger.info(f"Broadcasted message \"{packet}\"")
+        msg = packet.to_raw()
+        for conn in self.conn_list:
+            if conn.state == ConnectionStates.CONNECTED:
+                conn.socket.send(f"{msg}\r\n".encode())

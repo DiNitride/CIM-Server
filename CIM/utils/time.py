@@ -15,6 +15,10 @@ def now():
     return datetime.now()
 
 
+def iso():
+    return datetime.now().isoformat()
+
+
 def log_file_time_format():
     # logger.debug("Returning current datetime in log format")
     return datetime.now().strftime("%Y-%m-%d-%H-%M-%S.%f")
