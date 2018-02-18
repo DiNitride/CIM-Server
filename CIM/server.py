@@ -127,7 +127,6 @@ class Server:
         if check_authorise_user(auth["username"], auth["password"]):
             resp = Packet(
                 packet_type="004",
-                timestamp=time.iso(),
                 token=self.server_conn.token,
                 payload=self.get_new_token()
             )
@@ -136,7 +135,7 @@ class Server:
             self.send(conn, resp)
             self.disconnect(conn)
         else:
-            resp = Packet(packet_type="003", timestamp=time.iso(), token=self.server_conn.token, payload="null")
+            resp = Packet(packet_type="003", token=self.server_conn.token, payload="null")
             self.send(conn, resp)
 
     def complete_handshake(self, packet, conn):
