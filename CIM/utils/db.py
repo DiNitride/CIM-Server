@@ -64,5 +64,3 @@ def check_authorise_user(username, password):
         if user.passwd == password:
             return Login.AUTHORISED
     return Login.UNAUTHORISED
-
-
