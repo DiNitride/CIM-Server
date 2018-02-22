@@ -1,4 +1,5 @@
 .idea
 *.pyc
-CIM/config
+CIM/config/*
+!CIM/config/examples
 CIM/logs
