@@ -30,4 +30,4 @@ file_handler.setFormatter(log_format)
 logger.addHandler(file_handler)
 
 logger.info("Logger Initialised")
-logger.info(f"Server Root set as {os.getenv(\"CIM_ROOT\")}")
+logger.info(f"Server Root set as {os.getenv('CIM_ROOT')}")

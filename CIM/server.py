@@ -2,6 +2,7 @@ import logging
 import select
 import socket
 import threading
+import time as builtin_time
 
 from .utils.db import check_authorise_user
 from .packet_factory import PacketFactory
@@ -62,7 +63,7 @@ class Server:
                 try:
                     if conn.state == ConnectionStates.SERVER:
                         # New connection
-                        self.handshake(conn.accept())
+                        self.handshake(conn.socket.accept()[0])
                     elif conn.state == ConnectionStates.UNAUTHORISED:
                         self.authorise_connection(self.recieve_data(conn), conn)
                     elif conn.state == ConnectionStates.AUTHORISED:
@@ -117,8 +118,8 @@ class Server:
     def recieve_data(self, conn):
         return self.factory.process(conn.socket.recv(self.recv_buffer).decode("utf-8", errors='ignore').strip())
 
-    def handshake(self, conn):
-        conn = Connection(conn, ConnectionStates.UNAUTHORISED)
+    def handshake(self, socket):
+        conn = Connection(socket, ConnectionStates.UNAUTHORISED)
         self.conn_list.append(conn)
         resp = Packet(packet_type="001", token=self.server_conn.token, payload="null")
         self.send(conn, resp)
@@ -146,11 +147,13 @@ class Server:
             self.send(conn, resp)
 
     def send(self, destination, packet):
-        destination.socket.send(packet.to_raw())
+        builtin_time.sleep(2)
+        destination.socket.send(f"{packet.to_raw()}\r\n".encode())
+        self.logger.debug(f"Sent {packet} to {destination}")
 
     def broadcast(self, packet):
         """
-        Broadcasts a message to all current connections
+        Broadcasts a message to all current connections.
         """
         self.logger.info(f"Broadcasted message \"{packet}\"")
         msg = packet.to_raw()

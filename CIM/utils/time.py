@@ -16,7 +16,7 @@ def now():
 
 
 def iso():
-    return datetime.now().isoformat()
+    return datetime.now().isoformat()[:-3]
 
 
 def log_file_time_format():
