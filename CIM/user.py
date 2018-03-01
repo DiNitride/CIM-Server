@@ -1,5 +1,8 @@
 
 class User:
+    """
+    Base class to represent a connected user
+    """
 
     def __init__(self, usr, passwd, permlvl):
         self.usr = usr
