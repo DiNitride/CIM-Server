@@ -82,6 +82,7 @@ class Server:
                         self.logger.debug(f"Received packet from unauthorised connection {conn}")
                         self.complete_handshake(self.recieve_data(conn), conn)
                     elif conn.state == ConnectionStates.CONNECTED:
+                        self.logger.debug(f"Received packet from {conn.username}")
                         # New packet has been sent, so receive the data and parse it
                         packet = self.recieve_data(conn)
                         if packet.packet_type == "100":

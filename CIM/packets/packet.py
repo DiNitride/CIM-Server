@@ -17,6 +17,9 @@ class Packet:
         payload = data[66:]
         return cls(packet_type, token, payload, timestamp)
 
+    def __str__(self):
+        return self.payload_to_raw()
+
     def to_raw(self):
         return f"{self.packet_type}{self.token}{self.timestamp}{self.payload_to_raw()}"
 
