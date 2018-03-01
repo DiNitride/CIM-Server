@@ -18,6 +18,7 @@ class Server:
         """
         Constructor method for the server. Requires no parameters as none of configurable
         """
+
         self.logger = logging.getLogger(__name__)
         self.server_conn = Connection(socket.socket(socket.AF_INET, socket.SOCK_STREAM), ConnectionStates.SERVER)
         self.conn_list = []

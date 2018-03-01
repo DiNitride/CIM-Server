@@ -13,10 +13,11 @@ conn_str = f"host='{dbc['host']}' " \
            f"user='{dbc['usr']}' " \
            f"password='{dbc['usr_pwd']}'"
 
-conn = psycopg2.connect(conn_str)
-cursor = conn.cursor()
 
 logger = logging.getLogger(__name__)
+
+conn = psycopg2.connect(conn_str)
+cursor = conn.cursor()
 
 
 class Login(Enum):

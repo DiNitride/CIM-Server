@@ -1,8 +1,8 @@
-from .packets import Packet, AuthoisationPacket, TokenReturn
+from .packets import Packet, AuthorisationPacket, TokenReturn
 
 # A dictionary that links unique packet codes to their corresponding subclass if required
 packet_map = {
-    "002": AuthoisationPacket,
+    "002": AuthorisationPacket,
     "004": TokenReturn
 }
 
@@ -26,6 +26,6 @@ class PacketFactory:
 
     def process(self, raw: str):
         """
-        Function that wraps around __getitem__ if I want to call it as a method instead of using the [] syntax
+        Function that processes an entire raw packet
         """
         return self.__getitem__(raw[:3]).from_raw(raw)

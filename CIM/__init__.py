@@ -15,6 +15,7 @@ from .packet_factory import PacketFactory
 from . import packets, errors
 from . import utils
 
+
 # Get current date and time for the log file
 t = datetime.now().strftime("%Y-%m-%d-%h-%M-%S.%f")
 

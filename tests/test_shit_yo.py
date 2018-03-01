@@ -1,5 +1,7 @@
-import CIM
+import hashlib
 
-fac = CIM.PacketFactory()
 
-print(fac["002"])
+while True:
+    passwd = input()
+    passwd = hashlib.sha256(passwd.encode()).hexdigest()
+    print(passwd)
