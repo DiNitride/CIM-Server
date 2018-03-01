@@ -3,7 +3,7 @@ from .packets import Packet, AuthorisationPacket, TokenReturn
 # A dictionary that links unique packet codes to their corresponding subclass if required
 packet_map = {
     "002": AuthorisationPacket,
-    "004": TokenReturn
+    "005": TokenReturn
 }
 
 

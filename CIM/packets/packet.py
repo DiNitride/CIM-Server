@@ -13,8 +13,8 @@ class Packet:
     def from_raw(cls, data: str):
         packet_type = data[:3]
         token = data[3:43]
-        timestamp = data[43:69]
-        payload = data[69:]
+        timestamp = data[43:66]
+        payload = data[66:]
         return cls(packet_type, token, payload, timestamp)
 
     def to_raw(self):

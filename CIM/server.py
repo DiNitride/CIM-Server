@@ -2,11 +2,9 @@ import logging
 import select
 import socket
 import threading
-import time as builtin_time
 
-from .utils.db import check_authorise_user
+from .utils.db import check_authorise_user, Login
 from .packet_factory import PacketFactory
-from .utils import time
 from .connection import Connection, ConnectionStates
 from .packets import Packet, Message
 from .token_generator import generate_session_token
@@ -18,7 +16,6 @@ class Server:
         """
         Constructor method for the server. Requires no parameters as none of configurable
         """
-
         self.logger = logging.getLogger(__name__)
         self.server_conn = Connection(socket.socket(socket.AF_INET, socket.SOCK_STREAM), ConnectionStates.SERVER)
         self.conn_list = []
@@ -72,14 +69,17 @@ class Server:
                         # New connection, as the connection that has waiting data is the server socket
                         # Accepts the new connecton, connecting it to the server and passes the socket
                         # into the handshake function
+                        self.logger.debug("Received new connection, accepting")
                         self.handshake(conn.socket.accept()[0])
                     elif conn.state == ConnectionStates.UNAUTHORISED:
                         # The second stage of the handshake, this will be a packet returning authorisation data
                         # as it is currently unauthorised
+                        self.logger.debug(f"Received packet from unauthorised connection {conn}")
                         self.authorise_connection(self.recieve_data(conn), conn)
                     elif conn.state == ConnectionStates.AUTHORISED:
                         # This will be a packet returning a conformation message that it has
                         # received it's token
+                        self.logger.debug(f"Received packet from unauthorised connection {conn}")
                         self.complete_handshake(self.recieve_data(conn), conn)
                     elif conn.state == ConnectionStates.CONNECTED:
                         # New packet has been sent, so receive the data and parse it
@@ -87,10 +87,11 @@ class Server:
                         if packet.packet_type == "100":
                             # If the packet is a standard message
                             # Broadcast it to the server
+                            author = self.get_conn_from_token(packet.token)
                             self.broadcast(Packet(
                                 packet_type="100",
                                 token=self.server_conn.token,
-                                payload=f"{packet.payload}"
+                                payload=f"{author.username}: {packet.payload}"
                             ))
                 except (ConnectionResetError, ConnectionAbortedError):
                     # This error is thrown if a client disconnects midway through a connection
@@ -106,6 +107,7 @@ class Server:
         conn.socket.close()
         if conn in self.conn_list:
             self.conn_list.remove(conn)
+        self.logger.info(f"Disconnected connection {conn}")
 
     def shutdown(self):
         """
@@ -124,9 +126,11 @@ class Server:
         """
         Requests a new token from the generator until it receives a unique one
         """
+        self.logger.debug("Generating new token")
         while True:
             t = generate_session_token()
             if self.check_for_token_dup(t):
+                self.logger.debug(f"Generated new token {t}")
                 return t
 
     def check_for_token_dup(self, token):
@@ -146,6 +150,15 @@ class Server:
         for i, c in enumerate(self.conn_list):
             if c.socket == conn.socket:
                 return i
+
+    def get_conn_from_token(self, token):
+        """
+        Returns the connection object referencing a token
+        """
+        for c in self.conn_list:
+            if c.token == token:
+                return c
+        return None
 
     def update_connection(self, conn):
         """
@@ -169,6 +182,7 @@ class Server:
         """
         conn = Connection(socket, ConnectionStates.UNAUTHORISED)
         self.conn_list.append(conn)
+        self.logger.debug("Accepted new connection as unauthorised connection, awaiting authorisation")
         resp = Packet(packet_type="001", token=self.server_conn.token, payload="null")
         self.send(conn, resp)
 
@@ -177,19 +191,24 @@ class Server:
         After a connection has responded with authorisation data, this method validates it and
         acts accordingly.
         """
-        if check_authorise_user(auth["username"], auth["password"]):
+        self.logger.debug(f"Attempting to authorise user with username {auth['username']} and password {auth['password']}")
+        if check_authorise_user(auth["username"], auth["password"]) == Login.AUTHORISED:
+            token = self.get_new_token()
             resp = Packet(
                 packet_type="004",
                 token=self.server_conn.token,
-                payload=self.get_new_token()
+                payload=token
             )
             conn.set_state(ConnectionStates.AUTHORISED)
+            conn.token = token
+            conn.username = auth["username"]
+            conn.password = auth["password"]
             self.update_connection(conn)
             self.send(conn, resp)
-            self.disconnect(conn)
         else:
             resp = Packet(packet_type="003", token=self.server_conn.token, payload="null")
             self.send(conn, resp)
+            self.disconnect(conn)
 
     def complete_handshake(self, packet, conn):
         if packet.token == conn.token:
@@ -202,7 +221,6 @@ class Server:
         """
         Sends a packet to a specific connection
         """
-        builtin_time.sleep(2)
         destination.socket.send(f"{packet.to_raw()}\r\n".encode())
         self.logger.debug(f"Sent {packet} to {destination}")
 
