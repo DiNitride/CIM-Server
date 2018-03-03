@@ -26,13 +26,15 @@ class Login(Enum):
 
 
 def new_user(usr: str, passwd: str, permlvl: int):
+    if "." in usr:
+        logger.error("Unable to create user, '.' is a disallowed character")
+        return
     cursor.execute("SELECT * FROM public.users WHERE login=(%s)", (usr,))
     user_list = cursor.fetchall()
     if len(user_list) != 0:
         logger.error(f"Error creating user '{usr}': Already exists in table")
         return
     passwd = hashlib.sha256(passwd.encode()).hexdigest()
-    print(passwd)
     cursor.execute("INSERT INTO public.users VALUES (%s, %s, %s)", (usr, passwd, permlvl))
     conn.commit()
     logger.info(f"Successfully created new user '{usr}'")

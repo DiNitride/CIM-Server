@@ -82,22 +82,14 @@ class Server:
                         self.logger.debug(f"Received packet from unauthorised connection {conn}")
                         self.complete_handshake(self.recieve_data(conn), conn)
                     elif conn.state == ConnectionStates.CONNECTED:
-                        self.logger.debug(f"Received packet from {conn.username}")
                         # New packet has been sent, so receive the data and parse it
                         packet = self.recieve_data(conn)
-                        if packet.packet_type == "100":
-                            # If the packet is a standard message
-                            # Broadcast it to the server
-                            author = self.get_conn_from_token(packet.token)
-                            self.broadcast(Packet(
-                                packet_type="100",
-                                token=self.server_conn.token,
-                                payload=f"{author.username}: {packet.payload}"
-                            ))
+                        if Server.validate_packet(packet, conn.token):
+                            self.process_packet(packet)
+
                 except (ConnectionResetError, ConnectionAbortedError):
                     # This error is thrown if a client disconnects midway through a connection
-                    if conn in self.conn_list:
-                        self.conn_list.remove(conn)
+                    self.disconnect(conn)
 
         self.shutdown()
 
@@ -122,6 +114,10 @@ class Server:
         self.server_conn.socket.close()
         self.logger.info("Server socket closed, exiting. . .")
         quit(0)
+
+    @staticmethod
+    def validate_packet(packet, token):
+        return packet.token == token
 
     def get_new_token(self):
         """
@@ -174,9 +170,11 @@ class Server:
         First it receives the data, which is then utf-8 decoded and stripped of whitespace. Finally the string
         is passed into the packet factory to be turned into an instance of the relavent packet class
         """
-        data = conn.socket.recv(self.recv_buffer).decode("utf-8", errors='ignore').strip()
-        self.logger.debug(f"Received data {data}")
-        return self.factory.process(data)
+        raw = conn.socket.recv(self.recv_buffer).decode("utf-8", errors='ignore').strip()
+        if raw == "":
+            return
+        self.logger.debug(f"Recieved packet from {conn.username} with data: {raw}")
+        return self.factory.process(raw)
 
     def handshake(self, socket):
         """
@@ -219,6 +217,20 @@ class Server:
             self.update_connection(conn)
             resp = Packet(packet_type="006", token=self.server_conn.token, payload="Client connected")
             self.send(conn, resp)
+
+    def process_packet(self, packet):
+        # If the packet object is none, it means it was an invalid packet
+        if packet is None:
+            return
+        if packet.packet_type == "100":
+            # If the packet is a standard message
+            # Broadcast it to the clients
+            author = self.get_conn_from_token(packet.token)
+            self.broadcast(Packet(
+                packet_type="100",
+                token=self.server_conn.token,
+                payload=f"{author.username}: {packet.payload}"
+            ))
 
     def send(self, destination, packet):
         """
