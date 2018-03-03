@@ -174,7 +174,9 @@ class Server:
         First it receives the data, which is then utf-8 decoded and stripped of whitespace. Finally the string
         is passed into the packet factory to be turned into an instance of the relavent packet class
         """
-        return self.factory.process(conn.socket.recv(self.recv_buffer).decode("utf-8", errors='ignore').strip())
+        data = conn.socket.recv(self.recv_buffer).decode("utf-8", errors='ignore').strip()
+        self.logger.debug(f"Received data {data}")
+        return self.factory.process(data)
 
     def handshake(self, socket):
         """
@@ -184,7 +186,7 @@ class Server:
         conn = Connection(socket, ConnectionStates.UNAUTHORISED)
         self.conn_list.append(conn)
         self.logger.debug("Accepted new connection as unauthorised connection, awaiting authorisation")
-        resp = Packet(packet_type="001", token=self.server_conn.token, payload="null")
+        resp = Packet(packet_type="001", token=self.server_conn.token, payload="Credentials Request")
         self.send(conn, resp)
 
     def authorise_connection(self, auth, conn):
@@ -207,7 +209,7 @@ class Server:
             self.update_connection(conn)
             self.send(conn, resp)
         else:
-            resp = Packet(packet_type="003", token=self.server_conn.token, payload="null")
+            resp = Packet(packet_type="003", token=self.server_conn.token, payload="Disconnect notification")
             self.send(conn, resp)
             self.disconnect(conn)
 
@@ -215,7 +217,7 @@ class Server:
         if packet.token == conn.token:
             conn.set_state(ConnectionStates.CONNECTED)
             self.update_connection(conn)
-            resp = Packet(packet_type="006", token=self.server_conn.token, payload="null")
+            resp = Packet(packet_type="006", token=self.server_conn.token, payload="Client connected")
             self.send(conn, resp)
 
     def send(self, destination, packet):
