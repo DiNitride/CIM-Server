@@ -84,6 +84,8 @@ class Server:
                     elif conn.state == ConnectionStates.CONNECTED:
                         # New packet has been sent, so receive the data and parse it
                         packet = self.recieve_data(conn)
+                        if packet is None:
+                            return
                         if Server.validate_packet(packet, conn.token):
                             self.process_packet(packet)
 
@@ -171,7 +173,11 @@ class Server:
         is passed into the packet factory to be turned into an instance of the relavent packet class
         """
         raw = conn.socket.recv(self.recv_buffer).decode("utf-8", errors='ignore').strip()
+        print(raw)
         if raw == "":
+            # If the client sends a blank packet it means a disconenct
+            # Deal with that here
+
             return
         self.logger.debug(f"Recieved packet from {conn.username} with data: {raw}")
         return self.factory.process(raw)
