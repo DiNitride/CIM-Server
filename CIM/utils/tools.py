@@ -3,6 +3,7 @@ import pathlib
 import json
 
 
+# Load a JSON file and return it
 def load_config(filename: str):
     base = getenv("CONFIG_BASE", getenv("CIM_ROOT") + "/config")
 
