@@ -12,7 +12,7 @@ from .server import Server
 from .user import User
 from .token_generator import generate_session_token
 from .packet_factory import PacketFactory
-from . import packets, errors
+from . import packets
 from . import utils
 
 

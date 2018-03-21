@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Methods to return the current time in various format
 
 def pretty_time():
     # logger.debug("Returning current datetime in pretty print")
