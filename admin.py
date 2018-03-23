@@ -1,9 +1,3 @@
-"""
-Extremely rudimentary admin management application.
-This will be expanding into with more features later down the line,
-however for now it serves as a debugging tool.
-"""
-
 import argparse
 
 import CIM
@@ -27,16 +21,32 @@ if args.add:
     passwd = input(f"User '{user}' password: ")
     perm = int(input(f"User '{user}' permission level: "))
     u = CIM.utils.db.new_user(user, passwd, perm)
-    print(f"User '{u}' created")
+    if u is None:
+        print("Error creating user! Please check logs for more details")
+    else:
+        print(f"User '{u}' created")
+
 elif args.delete:
     print(f"Deleting user {user}")
     success = CIM.utils.db.del_user(user)
     if success:
         print(f"Successfully deleted user '{user}'")
     else:
-        print(f"Error deleting user '{usr}': User does not exist")
+        print(f"Error deleting user: User does not exist")
+
 elif args.edit:
-    print(f"Feature not enabled")
+    new_pass = input("Enter New Password (Leave blank for no update): ")
+    if new_pass == "":
+        new_pass = None
+    new_perm = input("Enter a new permission level (Leave blank for no update): ")
+    if new_pass == "":
+        new_perm = None
+    r = CIM.utils.db.edit_user(user, new_pass, new_perm)
+    if r is None:
+        print("Error editing user")
+    else:
+        print("Succesfully updated user")
+
 else:
     print(f"Retrieving information about {user}")
     u = CIM.utils.db.get_user(user)

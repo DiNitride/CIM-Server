@@ -20,6 +20,10 @@ conn = psycopg2.connect(conn_str)
 cursor = conn.cursor()
 
 
+def hash_pass(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
 class Login(Enum):
     """
     Small enumerator class to abstract the boolean value of whether a user is logged in into
@@ -45,7 +49,7 @@ def new_user(usr: str, passwd: str, permlvl: int):
         logger.error(f"Error creating user '{usr}': Already exists in table")
         return
     # Hash the provided password for security
-    passwd = hashlib.sha256(passwd.encode()).hexdigest()
+    passwd = hash_pass(passwd)
     # Insert user into DB
     cursor.execute("INSERT INTO public.users VALUES (%s, %s, %s)", (usr, passwd, permlvl))
     conn.commit()
@@ -67,6 +71,20 @@ def del_user(usr: str):
     else:
         logger.error(f"Error deleting user '{usr}': User does not exist")
         return False
+
+
+def edit_user(username, password = None, permission = None):
+    u = get_user(username)
+    if u is None:
+        return
+    if password is not None:
+        password = hash_pass(password)
+    password = password or u.passwd
+    permission = permission or u.permlvl
+    cursor.execute("UPDATE users SET passwd = (%s), permlvl = (%s) WHERE login = (%s)",
+                   (password, permission, username))
+    conn.commit()
+    return get_user(username)
 
 
 def get_user(usr: str):

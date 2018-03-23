@@ -3,7 +3,7 @@ import select
 import socket
 import threading
 
-from .utils.db import check_authorise_user, Login
+from .utils.db import check_authorise_user, Login, get_user
 from .packet_factory import PacketFactory
 from .connection import Connection, ConnectionStates
 from .packets import Packet, Message
@@ -90,7 +90,7 @@ class Server:
                         # New packet has been sent, so receive the data and parse it
                         packet = self.recieve_data(conn)
                         if packet is None:
-                            return
+                            continue
                         if Server.validate_packet(packet, conn.token):
                             self.process_packet(packet)
 
@@ -179,7 +179,16 @@ class Server:
         for c in self.conn_list:
             if c.token == token:
                 return c
-        return None
+        return
+
+    def get_conn_from_username(self, username):
+        """
+        Get a connection via username
+        """
+        for c in self.conn_list:
+            if c.username == username:
+                return c
+        return
 
     def update_connection(self, conn):
         """
@@ -195,8 +204,33 @@ class Server:
         is passed into the packet factory to be turned into an instance of the relavent packet class
         """
         raw = conn.socket.recv(self.recv_buffer).decode("utf-8", errors='ignore').strip()
+        if raw == "":
+            # Socket disconnect
+            self.disconnect(conn)
+            return
+        self.flush(conn)
         self.logger.debug(f"Recieved packet from {conn.username} with data: {raw}")
         return self.factory.process(raw)
+
+    def flush(self, conn):
+        """
+        Flushes a socket's stream of data
+        """
+        while True:
+            c, _, _ = select.select([conn], [], [], 0)
+            if len(c) == 0:
+                break
+            for s in c:
+                s.socket.recv(self.recv_buffer)
+
+    def no_duplicate_user(self, username):
+        """
+        Checks a username against currently logged in users
+        """
+        for conn in self.conn_list:
+            if conn.username == username:
+                return False
+            return True
 
     def handshake(self, socket):
         """
@@ -221,27 +255,34 @@ class Server:
                           f"and password {auth['password']}")
         # Check if the username and password presented is valid
         if check_authorise_user(auth["username"], auth["password"]) == Login.AUTHORISED:
-            # Generate a new token for them
-            token = self.get_new_token()
-            # Create a response packet
-            resp = Packet(
-                packet_type="004",
-                token=self.server_conn.token,
-                payload=token
-            )
-            # Modify their connection state
-            conn.set_state(ConnectionStates.AUTHORISED)
-            conn.token = token
-            conn.username = auth["username"]
-            conn.password = auth["password"]
-            self.update_connection(conn)
-            # Send response
-            self.send(conn, resp)
+            if self.no_duplicate_user(auth["username"]):
+                # Generate a new token for them
+                token = self.get_new_token()
+                # Create a response packet
+                resp = Packet(
+                    packet_type="004",
+                    token=self.server_conn.token,
+                    payload=token
+                )
+                # Modify their connection state
+                conn.set_state(ConnectionStates.AUTHORISED)
+                conn.token = token
+                conn.username = auth["username"]
+                conn.password = auth["password"]
+                conn.permission = get_user(auth["username"]).permlvl
+                self.update_connection(conn)
+                # Send response
+                self.send(conn, resp)
+            else:
+                self.send_disconnect_packet(conn)
         else:
             # If invalid, respond with a disconnect packet
-            resp = Packet(packet_type="003", token=self.server_conn.token, payload="Disconnect notification")
-            self.send(conn, resp)
-            self.disconnect(conn)
+            self.send_disconnect_packet(conn)
+
+    def send_disconnect_packet(self, dest):
+        resp = Packet(packet_type="003", token=self.server_conn.token, payload="Disconnect notification")
+        self.send(dest, resp)
+        self.disconnect(dest)
 
     def complete_handshake(self, packet, conn):
         """
@@ -261,15 +302,48 @@ class Server:
         # If the packet object is none, it means it was an invalid packet
         if packet is None:
             return
+        author = self.get_conn_from_token(packet.token)
         if packet.packet_type == "100":
             # If the packet is a standard message
             # Broadcast it to the clients
-            author = self.get_conn_from_token(packet.token)
             self.broadcast(Packet(
                 packet_type="100",
                 token=self.server_conn.token,
                 payload=f"{author.username}: {packet.payload}"
             ))
+        if packet.packet_type == "150":
+            # KICK REQUEST
+            if int(author.permission) < 2:
+                self.send(author,
+                          Packet(
+                              packet_type="100",
+                              token=self.server_conn.token,
+                              payload="SERVER: Invalid Permission Level to use this command"
+                          ))
+            else:
+                target = self.get_conn_from_username(packet.payload)
+                if target is None:
+                    self.send(author,
+                              Packet(
+                                  packet_type="100",
+                                  token=self.server_conn.token,
+                                  payload="SERVER: User not connected!"
+                              ))
+                elif int(target.permission) >= 2:
+                    self.send(author,
+                              Packet(
+                                  packet_type="100",
+                                  token=self.server_conn.token,
+                                  payload="SERVER: Cannot kick someone of the same or greater permission level!"
+                              ))
+                else:
+                    self.send_disconnect_packet(target)
+                    self.send(author,
+                              Packet(
+                                  packet_type="100",
+                                  token=self.server_conn.token,
+                                  payload=f"SERVER: Kicked user {target}"
+                              ))
 
     def send(self, destination, packet):
         """
